@@ -2,6 +2,14 @@
 
 This repository holds the code for **ongoing** updates and integrations of the ProteomeScout reference database (`data.tsv` + `citations.tsv`), following the first major migration (v4) of the resource. 
 
+## Running an update cycle
+
+`notebooks/UpdatePipeline.ipynb` is a generated template (see `generate_update_notebook.py`
+below) and shouldn't be hand-edited directly. To run an actual update: copy it to a dated
+filename first (e.g. `UpdatePipeline_Oct1_2026.ipynb`), then edit *that copy* freely — resource
+selection, species config, anything specific to that cycle. The dated copy is meant to be
+hand-edited, and becomes the documentation of record for what was done in that update cycle.
+
 ## Directory layout
 ```
 pipeline/            All reusable pipeline code (flat package, see note below)
@@ -17,8 +25,8 @@ docs/                Supplementary docs (e.g. SpY-C integration notes)
 
 `Data/current` and `Data/new` are staging directories only — never commit real data files into them (see `.gitignore`). The convention for every update cycle is:
 
-1. Copy the current released ProteomeScout dataset into `Data/current/`.
-2. If it isn't already split per species, run `pipeline/split_species.py` (see Pipeline step 0 below) to produce `Data/current/<species>/data.tsv`.
+1. Copy the current released ProteomeScout dataset's combined `data.tsv` and `citations.tsv` into `Data/current/ProteomeScout_Dataset/` (matching the layout ProteomeScoutAPI/proteomescout-v4 expect). Everyone starts from these two files, not from data already split by species.
+2. Run `pipeline/split_species.py` (see Pipeline step 0 below) to produce `Data/current/<species>/data.tsv`.
 3. Run the pipeline steps below, which read from `Data/current` and write intermediate/final outputs into `Data/new`.
 4. Once QC passes, `Data/new` becomes the next released `Data/current` for the following cycle.
 
@@ -46,15 +54,17 @@ Which species actually run in a given update cycle, and whether each is treated 
 ## Pipeline steps
 Each step operates **per species** on `Data/<stage>/<species>/data.tsv`. The set of species for an update cycle, and whether each is treated as a full reference proteome (vs. PTM-only maintenance), is a per-update decision made in the orchestration notebook (`SPECIES_IS_FULL_REFERENCE`).
 
-0. **Split the combined dataset by species** (`pipeline/split_species.py`) — only needed if `Data/current/data.tsv` hasn't already been staged as `Data/current/<species>/data.tsv`. Matches the `species` column's scientific name against the short species keys in `species_config.json`, and writes one `data.tsv` per species subdirectory. Records with an unrecognized species value are **not dropped** — they're written to `species_other/data.tsv` (same layout as a real species) so they still flow through the generic update step; they just can't go through UniProt proteome integration, since that step queries a single taxid/proteome per species and `species_other` is a mixed bag. Check it periodically to see if a new species should be added to `species_config.json`.
+0. **Split the combined dataset by species** (`pipeline/split_species.py`) — splits the staged `Data/current/ProteomeScout_Dataset/data.tsv`. Matches the `species` column's scientific name against the short species keys in `species_config.json`, and writes one `data.tsv` per species subdirectory. Records with an unrecognized species value are **not dropped** — they're written to `species_other/data.tsv` (same layout as a real species) so they still flow through the generic update step; they just can't go through UniProt proteome integration, since that step queries a single taxid/proteome per species and `species_other` is a mixed bag. Check it periodically to see if a new species should be added to `species_config.json`.
 
    ```bash
-   python pipeline/split_species.py --input-file Data/current/data.tsv --output-dir Data/current
+   python pipeline/split_species.py --input-file Data/current/ProteomeScout_Dataset/data.tsv --output-dir Data/current
    ```
 
 1. **Register a resource ID.** Before integrating a new data source, add an entry to
    `citations.tsv` and get back a `resource_id` (see `translationTools.return_new_resource_id`).
-   Do this once per resource per update cycle, not once per species.
+   Do this once per resource per update cycle, not once per species — in the notebook this
+   happens right in the "what resources are you updating today?" cell, immediately after you
+   pick the resources for this cycle.
 
 2. **Update records to current UniProt** (`pipeline/update_proteomescout.py`) — refreshes sequences, GO terms, and domains for existing records; migrates PTMs onto a new reference sequence by alignment when it changed (dropping modifications that no longer map), then cleans up errors/duplicates.
 
