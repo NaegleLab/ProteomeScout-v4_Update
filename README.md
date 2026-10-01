@@ -32,6 +32,11 @@ pip install -r requirements.txt
 cp config.example.json config.local.json   # set "data_root" to your local data path
 ```
 
+No manual UniProt proteome download is needed: `uniprot_integration_pipeline.py` fetches
+canonical/non-redundant proteomes live from the UniProt REST API and caches them under
+`<data_root>/Uniprot_Proteome/` (reused on later runs instead of re-fetching). PSP is the
+exception — see step 4 below, PSP downloads must be fetched manually (when access is available).
+
 ## Species configuration
 
 Static per-species facts (taxid, UniProt proteome ID, and the scientific-name prefix used to match the `species` column) live in one place: `species_config.json` at the repo root, loaded via `pipeline/species_config.py`. Add a new species there first — `split_species.py` and `uniprot_integration_pipeline.py` both read from it, so there's a single source of truth.

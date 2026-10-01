@@ -62,7 +62,10 @@ if not config_path.exists():
 with config_path.open() as f:
     data_root = Path(json.load(f)["data_root"]).expanduser()
 
+# UniProt proteomes are fetched live from the UniProt REST API and cached here - no manual
+# download needed, but the directory must exist before the first fetch.
 uniprot_data_dir = data_root / "Uniprot_Proteome"
+uniprot_data_dir.mkdir(parents=True, exist_ok=True)
 
 LOG_FILE = start_log(DATA_NEW / "logs")
 log(LOG_FILE, f"Started update cycle run. Log file: {LOG_FILE}")
