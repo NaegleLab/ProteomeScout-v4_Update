@@ -110,6 +110,15 @@ ENV/
 env.bak/
 venv.bak/
 
+# Machine-specific data locations
+/config.local.json
+
+# Staged update data (species data files, logs, QC outputs) - never commit real data
+Data/current/*
+Data/new/*
+!Data/current/.gitkeep
+!Data/new/.gitkeep
+
 # Spyder project settings
 .spyderproject
 .spyproject

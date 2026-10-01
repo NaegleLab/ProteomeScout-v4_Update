@@ -1,0 +1,32 @@
+{
+  "human": {
+    "taxid": "9606",
+    "proteome_id": "UP000005640",
+    "scientific_name_prefix": "homo sapiens"
+  },
+  "mouse": {
+    "taxid": "10090",
+    "proteome_id": "UP000000589",
+    "scientific_name_prefix": "mus musculus"
+  },
+  "rat": {
+    "taxid": "10116",
+    "proteome_id": "UP000002494",
+    "scientific_name_prefix": "rattus norvegicus"
+  },
+  "cow": {
+    "taxid": "9913",
+    "proteome_id": "UP000009136",
+    "scientific_name_prefix": "bos taurus"
+  },
+  "fly": {
+    "taxid": "7227",
+    "proteome_id": "UP000000803",
+    "scientific_name_prefix": "drosophila melanogaster"
+  },
+  "yeast": {
+    "taxid": "559292",
+    "proteome_id": "UP000002311",
+    "scientific_name_prefix": "saccharomyces cerevisiae"
+  }
+}
