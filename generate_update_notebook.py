@@ -377,7 +377,7 @@ def main():
     OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
     with open(OUTPUT_FILE, "w") as f:
         json.dump(notebook, f, indent=1)
-        f.write("\\n")
+        f.write("\n")
     print(f"Wrote {OUTPUT_FILE}")
 
 
