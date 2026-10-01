@@ -55,6 +55,7 @@ def validate_files(data_dir, species):
         df = pd.read_csv(updated_file, sep="\t")
         df['updated'] = None
         df['error_code'] = 0
+        df.to_csv(updated_file, sep="\t", index=False)
     return data_dir_sub, data_file, updated_file
 
 

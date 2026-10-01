@@ -121,15 +121,97 @@ log(LOG_FILE, f"Confirmed staged dataset: {rel(combined_file)}, {rel(citations_f
 
 Everyone starts from the single combined `Data/current/ProteomeScout_Dataset/data.tsv` — this
 splits it into `Data/current/<species>/data.tsv` (plus `species_other` for anything not in
-`species_config.json`).
+`species_config.json`). Always overwrites any `<species>/data.tsv` already there from a previous
+cycle, since the combined file just staged is this cycle's authoritative starting point.
 '''),
     ("code", '''\
 run([
     "python", "split_species.py",
     "--input-file", str(combined_file),
     "--output-dir", str(DATA_CURRENT),
+    "--overwrite",
 ])
 log(LOG_FILE, f"Split {rel(combined_file)} into per-species files under {rel(DATA_CURRENT)}")
+'''),
+    ("markdown", '''\
+## Species configuration for this update cycle
+
+Static per-species facts (taxid, proteome ID, scientific-name prefix) come from
+`species_config.json`. Set which species run this cycle, and whether each is a full reference
+proteome, below.
+'''),
+    ("code", '''\
+SPECIES_IS_FULL_REFERENCE = {
+    "human": True,
+    "mouse": True,
+    "rat": False,
+    "cow": False,
+    "fly": False,
+    "yeast": False,
+}
+
+unknown_species = set(SPECIES_IS_FULL_REFERENCE) - set(load_species_config())
+if unknown_species:
+    raise ValueError(f"Add these species to species_config.json before running: {unknown_species}")
+
+log(LOG_FILE, f"Species configured for this cycle: {SPECIES_IS_FULL_REFERENCE}")
+'''),
+    ("markdown", '''\
+## DANGER ZONE: Reset per-species update tracking for a new cycle
+
+How record-level tracking works, so you know what this resets and why:
+- **Step 1 (UniProt record update)** processes a row only if its `updated` column is blank, and
+  checkpoints progress by writing a timestamp into `updated` (and an `error_code`) after each
+  batch, straight into `data.tsv.updated`. If `data.tsv.updated` already exists, that file (with
+  whatever `updated`/`error_code` values it already has) is reused as-is - nothing gets reset.
+- **Step 2 (UniProt proteome integration)** tracks which `uniprot_id`s it already processed via
+  `integration_log_uniprot.tsv`, not via a data column, but it stamps a date into `swissprot_nr`
+  for every record it confirms is part of the current non-redundant reference proteome.
+
+Every value in `data.tsv` (`updated`, `error_code`, `swissprot_nr`) is carried forward from the
+*previous* cycle's released dataset. If they're left in place, Step 1 sees every row as already
+`updated` and does nothing, and `swissprot_nr` stays stuck with last cycle's dates (including for
+records that have since dropped out of the reference proteome). Only answer "yes" below the
+first time you start a brand-new cycle (right after staging the freshly released data and running
+Step 0's species split) to clear all of this out.
+
+If you're instead resuming after a failed/interrupted run of *this same* cycle, answer "no" -
+resuming without resetting is what preserves already-completed work from this cycle.
+'''),
+    ("code", '''\
+STALE_ARTIFACTS = [
+    "data.tsv.updated", "data.tsv.updated_clean", "proteomescout_update.log",
+    "complete.updated", "complete.cleanup",
+    "data.tsv.uniprot", "integration_log_uniprot.tsv", "complete.uniprot", "uniprot_integration.log",
+    "data.tsv.psp", "integration_log_psp.tsv", "complete.psp", "psp_integration.log",
+    "data.tsv.dbptm",
+]
+COLUMNS_TO_RESET = ["updated", "error_code", "swissprot_nr"]
+
+first_time = input("Are you starting this update cycle for the first time today? (yes/no): ").strip().lower()
+
+if first_time == "yes":
+    species_dirs = list(SPECIES_IS_FULL_REFERENCE)
+    if (DATA_CURRENT / "species_other").exists():
+        species_dirs.append("species_other")
+
+    for species in species_dirs:
+        species_dir = DATA_CURRENT / species
+
+        removed = [name for name in STALE_ARTIFACTS if (species_dir / name).exists()]
+        for name in removed:
+            (species_dir / name).unlink()
+
+        species_data_file = species_dir / "data.tsv"
+        df = pd.read_csv(species_data_file, sep="\\t")
+        reset_columns = [col for col in COLUMNS_TO_RESET if col in df.columns]
+        for col in reset_columns:
+            df[col] = 0 if col == "error_code" else None
+        df.to_csv(species_data_file, sep="\\t", index=False)
+
+        log(LOG_FILE, f"{species}: removed stale {removed or 'none'}; reset columns {reset_columns or 'none'} in {rel(species_data_file)}")
+else:
+    log(LOG_FILE, "Skipped reset; resuming existing per-species progress from this cycle.")
 '''),
     ("markdown", '''\
 ## What resources are you updating today?
@@ -197,29 +279,6 @@ for resource in RESOURCES_TO_RUN:
     log(LOG_FILE, f"Registered resource '{resource}' as resource ID {resource_id}")
 
 print(f"Resource IDs for this cycle: {RESOURCE_IDS}")
-'''),
-    ("markdown", '''\
-## Species configuration for this update cycle
-
-Static per-species facts (taxid, proteome ID, scientific-name prefix) come from
-`species_config.json`. Set which species run this cycle, and whether each is a full reference
-proteome, below.
-'''),
-    ("code", '''\
-SPECIES_IS_FULL_REFERENCE = {
-    "human": True,
-    "mouse": True,
-    "rat": False,
-    "cow": False,
-    "fly": False,
-    "yeast": False,
-}
-
-unknown_species = set(SPECIES_IS_FULL_REFERENCE) - set(load_species_config())
-if unknown_species:
-    raise ValueError(f"Add these species to species_config.json before running: {unknown_species}")
-
-log(LOG_FILE, f"Species configured for this cycle: {SPECIES_IS_FULL_REFERENCE}")
 '''),
     ("markdown", '''\
 ## Step 1: Update all records to current UniProt
